@@ -1,37 +1,35 @@
-
 import Image from "next/image";
 import { ShoppingBag, Menu, ArrowRight } from "lucide-react";
-import { createClient } from "@supabase/supabase-js"; // Importando a conexão que criamos
+import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { CartTrigger } from "@/components/cart-trigger";
 import { QuickBuyButton } from "@/components/quick-buy-button";
-import { CartSidebar } from "@/components/cart-sidebar";
 
-// 1. Definindo o tipo do Produto (baseado no seu Banco de Dados)
+// 1. Definindo o tipo do Produto
 interface Product {
   id: number;
   name: string;
   price: number;
   image_url: string | null;
-  badge?: string | null; // Opcional (ex: "Lançamento")
+  badge?: string | null;
   slug: string;
 }
 
 export default async function Home() {
-  // 2. Buscando os produtos no Supabase (Server Side Fetching)
+  // 2. Buscando APENAS OS 6 ULTIMOS produtos (Lançamentos)
   const { data: products, error } = await createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
     .from('products')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(6); // <--- AQUI ESTÁ O LIMITE PARA A HOME
 
   if (error) {
     console.error("Erro ao buscar produtos:", error);
   }
 
-  // Função para formatar preço (R$)
   const formatPrice = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -45,33 +43,28 @@ export default async function Home() {
       {/* --- NAVBAR --- */}
       <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-zinc-950/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          {/* Menu Mobile */}
           <button className="p-2 hover:bg-white/5 rounded-full lg:hidden">
             <Menu className="w-6 h-6" />
           </button>
 
-          {/* Logo */}
           <div className="flex items-center gap-2">
             <span className="font-bold text-2xl tracking-tighter text-white cursor-pointer hover:opacity-80 transition-opacity">
               MELOS<span className="text-purple-600">.</span>CO
             </span>
           </div>
 
-          {/* Carrinho */}
+           <div className="relative group">
             <CartTrigger className="w-6 h-6 group-hover:text-purple-400 transition-colors" />
             <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-purple-600 rounded-full border-2 border-zinc-950"></span>
-          
+           </div>
         </div>
       </nav>
 
-      {/* --- HERO SECTION (Marketing Estático) --- */}
+      {/* --- HERO SECTION --- */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6 overflow-hidden">
-        {/* Elemento de Fundo (Glow Roxo) */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-purple-900/10 blur-[120px] pointer-events-none rounded-full"></div>
 
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center relative z-10">
-          
-          {/* Texto Hero */}
           <div className="space-y-8 animate-in slide-in-from-left duration-700 fade-in">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium tracking-wide text-purple-300">
               <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
@@ -101,12 +94,9 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* Imagem Hero (Destaque Visual) */}
           <div className="relative h-[500px] lg:h-[600px] bg-zinc-900 rounded-lg border border-white/5 overflow-hidden group animate-in slide-in-from-right duration-1000 fade-in">
-            {/* Efeito de brilho interno */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-purple-600/20 blur-[100px] rounded-full pointer-events-none z-0"></div>
-            
-             <Image 
+            <Image 
                src="/img/camisa-frente.png" 
                alt="Camisa Destaque"
                fill
@@ -117,20 +107,24 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* --- VITRINE / GRID (Dados do Supabase) --- */}
+      {/* --- VITRINE / GRID --- */}
       <section className="py-20 bg-zinc-900/30 border-t border-white/5">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-end mb-12">
             <div>
               <h2 className="text-3xl font-bold text-white mb-2">LATEST DROPS</h2>
-              <p className="text-zinc-500 text-sm">Explore os lançamentos exclusivos.</p>
+              <p className="text-zinc-500 text-sm">Os lançamentos mais recentes.</p>
             </div>
-            <a href="#" className="text-sm text-zinc-400 hover:text-purple-400 transition-colors flex items-center gap-1">
+            
+            {/* LINK PARA A PÁGINA DE CATEGORIAS/TODOS */}
+            <Link 
+              href="/products" 
+              className="text-sm text-zinc-400 hover:text-purple-400 transition-colors flex items-center gap-1"
+            >
               Ver tudo <ArrowRight className="w-3 h-3" />
-            </a>
+            </Link>
           </div>
 
-          {/* Grid de Produtos */}
           {products && products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {products.map((product: Product) => (
@@ -138,14 +132,12 @@ export default async function Home() {
                   <div key={product.id} className="group relative cursor-pointer">
                     {/* Card Imagem */}
                     <div className="aspect-[4/5] bg-zinc-800 rounded-sm overflow-hidden border border-white/5 relative">
-                      {/* Badge (Se existir) */}
                       {product.badge && (
                         <span className="absolute top-4 left-4 bg-purple-600 text-white text-xs font-bold px-3 py-1 z-10 shadow-lg">
                           {product.badge.toUpperCase()}
                         </span>
                       )}
                       
-                      {/* Imagem do Produto */}
                       <div className="w-full h-full bg-zinc-800 flex items-center justify-center text-zinc-600 relative">
                         <Image 
                           src={product.image_url || '/img/camisa-frente.png'} 
@@ -156,8 +148,7 @@ export default async function Home() {
                         />
                       </div>
                       
-                      {/* Botão Add Rápido */}
-                        <QuickBuyButton product={product} />
+                      <QuickBuyButton product={product} />
                     </div>
 
                     {/* Infos do Produto */}
@@ -169,7 +160,6 @@ export default async function Home() {
                         <p className="text-zinc-400 font-light">
                           {formatPrice(product.price)}
                         </p>
-                        {/* Pequeno indicador visual de estoque ou cor */}
                         <div className="flex gap-1">
                           <div className="w-3 h-3 rounded-full bg-zinc-800 border border-zinc-700"></div>
                           <div className="w-3 h-3 rounded-full bg-zinc-900 border border-zinc-700"></div>
@@ -181,10 +171,8 @@ export default async function Home() {
               ))}
             </div>
           ) : (
-            // Estado Vazio (Caso o banco não retorne nada)
             <div className="text-center py-20 border border-dashed border-white/10 rounded-lg">
-              <p className="text-zinc-500">Nenhum produto encontrado no banco de dados.</p>
-              <p className="text-xs text-zinc-600 mt-2">Verifique sua conexão com o Supabase.</p>
+              <p className="text-zinc-500">Nenhum lançamento recente encontrado.</p>
             </div>
           )}
         </div>

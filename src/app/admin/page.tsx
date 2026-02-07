@@ -41,7 +41,7 @@ export default function AdminDashboard() {
     const { error } = await supabase.from("products").delete().eq("id", id);
 
     if (error) {
-      alert("ERRO: Você precisa rodar o comando SQL no Supabase para liberar a exclusão.");
+      alert("ERRO: Permissão negada. Verifique se rodou o comando SQL no Supabase.");
     } else {
       setProducts((prev) => prev.filter((p) => p.id !== id));
     }
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
         
         {/* --- FILTROS --- */}
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-           {/* Busca Corrigida */}
+           {/* Busca */}
            <div className="w-full md:w-[400px] relative">
              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 w-5 h-5" />
              <input 
@@ -95,32 +95,25 @@ export default function AdminDashboard() {
            </div>
         </div>
 
-        {/* --- TABELA REAL (NÃO QUEBRA O ALINHAMENTO) --- */}
+        {/* --- TABELA BLINDADA --- */}
         <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              
-              {/* Cabeçalho da Tabela */}
+            <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="bg-zinc-950/80 text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-white/5">
-                  <th className="p-5 pl-6">Produto</th>
-                  <th className="p-5">Categoria</th>
-                  <th className="p-5">Estoque</th>
-                  <th className="p-5">Preço</th>
-                  <th className="p-5 text-right pr-6">Ações</th>
+                  <th className="p-5 pl-6 w-[40%]">Produto</th>
+                  <th className="p-5 w-[15%]">Categoria</th>
+                  <th className="p-5 w-[15%]">Estoque</th>
+                  <th className="p-5 w-[15%]">Preço</th>
+                  <th className="p-5 w-[15%] text-right pr-6">Ações</th>
                 </tr>
               </thead>
 
-              {/* Corpo da Tabela */}
               <tbody className="divide-y divide-white/5 text-sm">
                 {loading ? (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-zinc-500">Carregando estoque...</td>
-                  </tr>
+                  <tr><td colSpan={5} className="p-12 text-center text-zinc-500">Carregando estoque...</td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="p-12 text-center text-zinc-500">Nenhum produto encontrado.</td>
-                  </tr>
+                  <tr><td colSpan={5} className="p-12 text-center text-zinc-500">Nenhum produto encontrado.</td></tr>
                 ) : (
                   filtered.map((product) => (
                     <tr key={product.id} className="group hover:bg-white/[0.02] transition-colors">
@@ -128,11 +121,15 @@ export default function AdminDashboard() {
                       {/* Célula: Produto */}
                       <td className="p-4 pl-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-14 bg-zinc-950 rounded border border-zinc-800 overflow-hidden flex-shrink-0">
-                            <img src={product.image_url || "/placeholder.png"} alt={product.name} className="w-full h-full object-cover" />
+                          <div className="w-12 h-14 bg-zinc-950 rounded border border-zinc-800 overflow-hidden flex-shrink-0 relative">
+                            <img 
+                              src={product.image_url || "/placeholder.png"} 
+                              alt={product.name} 
+                              className="w-full h-full object-cover absolute inset-0" 
+                            />
                           </div>
-                          <div>
-                            <p className="font-bold text-white text-base">{product.name}</p>
+                          <div className="truncate pr-4">
+                            <p className="font-bold text-white text-base truncate">{product.name}</p>
                             <p className="text-[10px] text-zinc-500 mt-0.5">ID: {product.id}</p>
                           </div>
                         </div>
@@ -170,9 +167,16 @@ export default function AdminDashboard() {
                       {/* Célula: Ações */}
                       <td className="p-4 pr-6 text-right">
                         <div className="flex justify-end gap-2">
-                           <button className="p-2 hover:bg-blue-500/10 text-zinc-500 hover:text-blue-400 rounded transition-colors" title="Editar">
+                           
+                           {/* BOTÃO EDITAR AGORA FUNCIONA */}
+                           <Link 
+                             href={`/admin/edit/${product.id}`}
+                             className="p-2 hover:bg-blue-500/10 text-zinc-500 hover:text-blue-400 rounded transition-colors inline-flex items-center justify-center" 
+                             title="Editar"
+                           >
                              <Edit className="w-4 h-4" />
-                           </button>
+                           </Link>
+
                            <button 
                              onClick={() => handleDelete(product.id)}
                              className="p-2 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded transition-colors" 
