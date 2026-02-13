@@ -7,7 +7,7 @@ import { CartSidebar } from "@/components/cart-sidebar"; // <--- Importe 2
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Melos Company",
+  title: "Melos.Co",
   description: "Streetwear High Quality",
 };
 
