@@ -5,6 +5,8 @@ import Link from "next/link";
 import { CartTrigger } from "@/components/cart-trigger";
 import { QuickBuyButton } from "@/components/quick-buy-button";
 
+export const revalidate = 30; // Revalida a cada 60 segundos para mostrar novos lançamentos
+
 // 1. Definindo o tipo do Produto
 interface Product {
   id: number;
