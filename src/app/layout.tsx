@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google"; // ou a fonte que você escolheu
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { CartProvider } from "@/context/CartContext"; // <--- Importe 1
-import { CartSidebar } from "@/components/cart-sidebar"; // <--- Importe 2
+import { CartProvider } from "@/context/CartContext";
+import { CartSidebar } from "@/components/cart-sidebar"; // <--- Importe aqui
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Melos.Co",
-  description: "Streetwear High Quality",
+  title: "MELOS.CO",
+  description: "Streetwear",
 };
 
 export default function RootLayout({
@@ -19,10 +19,9 @@ export default function RootLayout({
   return (
     <html lang="pt-br">
       <body className={inter.className}>
-        {/* Envolvendo tudo com o Provider */}
         <CartProvider>
           {children}
-          <CartSidebar /> {/* A gaveta fica aqui, disponível pra todo o site */}
+          <CartSidebar /> {/* <--- Adicione aqui, flutuando sobre tudo */}
         </CartProvider>
       </body>
     </html>

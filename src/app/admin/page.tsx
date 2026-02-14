@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../../public/lib/supabase";
-import { Plus, Trash2, Edit, Package, Search, Archive, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Edit, Package, Search, Archive, AlertTriangle, ImageIcon, ShoppingBag } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface Product {
   id: number;
@@ -37,11 +38,9 @@ export default function AdminDashboard() {
 
   async function handleDelete(id: number) {
     if (!window.confirm("Tem certeza que deseja excluir?")) return;
-
     const { error } = await supabase.from("products").delete().eq("id", id);
-
     if (error) {
-      alert("ERRO: Permissão negada. Verifique se rodou o comando SQL no Supabase.");
+      alert("ERRO: Verifique as permissões do Supabase.");
     } else {
       setProducts((prev) => prev.filter((p) => p.id !== id));
     }
@@ -54,145 +53,152 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans pb-20">
       
-      {/* --- HEADER --- */}
-      <div className="border-b border-white/5 bg-[#09090b] sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      {/* HEADER FIXO */}
+      <div className="border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-purple-600/20 p-2 rounded-lg">
-              <Package className="w-6 h-6 text-purple-500" />
+            <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(147,51,234,0.5)]">
+              <Package className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight">Painel Admin</h1>
+            <h1 className="text-xl font-bold tracking-tight text-white">Painel Admin</h1>
           </div>
           
-          <Link 
-            href="/admin/new" 
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(147,51,234,0.4)]"
-          >
-            <Plus className="w-4 h-4" /> NOVO PRODUTO
-          </Link>
+          <div className="flex gap-3">
+            {/* BOTÃO NOVO: IR PARA PEDIDOS */}
+            <Link 
+              href="/admin/orders" 
+              className="bg-zinc-800 hover:bg-zinc-700 text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all border border-white/10"
+            >
+              <ShoppingBag className="w-4 h-4" /> VER PEDIDOS
+            </Link>
+
+            <Link 
+              href="/admin/new" 
+              className="bg-white hover:bg-zinc-200 text-black px-6 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg"
+            >
+              <Plus className="w-4 h-4" /> NOVO PRODUTO
+            </Link>
+          </div>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <main className="max-w-6xl mx-auto px-6 py-10 space-y-8">
         
-        {/* --- FILTROS --- */}
+        {/* BUSCA E INFO */}
         <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-           {/* Busca */}
-           <div className="w-full md:w-[400px] relative">
-             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 w-5 h-5" />
+           <div className="w-full md:w-[400px] relative group">
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 w-5 h-5 group-focus-within:text-purple-400 transition-colors" />
              <input 
                type="text" 
-               placeholder="Buscar produto pelo nome..." 
+               placeholder="Buscar produto..." 
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
-               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl h-12 pl-12 pr-4 text-white focus:border-purple-500 outline-none transition-all placeholder:text-zinc-600"
+               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl h-12 pl-12 pr-4 text-white focus:border-purple-500 outline-none transition-all placeholder:text-zinc-600 focus:ring-1 focus:ring-purple-500"
              />
            </div>
-
-           {/* Contador */}
-           <div className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-400">
-             Total: <span className="text-white font-bold ml-1">{products.length}</span>
+           <div className="text-zinc-500 text-sm font-medium bg-zinc-900/50 px-4 py-2 rounded-lg border border-white/5">
+             Total Cadastrado: <span className="text-white font-bold ml-1">{products.length}</span>
            </div>
         </div>
 
-        {/* --- TABELA BLINDADA --- */}
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse table-fixed">
-              <thead>
-                <tr className="bg-zinc-950/80 text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-white/5">
-                  <th className="p-5 pl-6 w-[40%]">Produto</th>
-                  <th className="p-5 w-[15%]">Categoria</th>
-                  <th className="p-5 w-[15%]">Estoque</th>
-                  <th className="p-5 w-[15%]">Preço</th>
-                  <th className="p-5 w-[15%] text-right pr-6">Ações</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-white/5 text-sm">
-                {loading ? (
-                  <tr><td colSpan={5} className="p-12 text-center text-zinc-500">Carregando estoque...</td></tr>
-                ) : filtered.length === 0 ? (
-                  <tr><td colSpan={5} className="p-12 text-center text-zinc-500">Nenhum produto encontrado.</td></tr>
-                ) : (
-                  filtered.map((product) => (
-                    <tr key={product.id} className="group hover:bg-white/[0.02] transition-colors">
-                      
-                      {/* Célula: Produto */}
-                      <td className="p-4 pl-6">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-14 bg-zinc-950 rounded border border-zinc-800 overflow-hidden flex-shrink-0 relative">
-                            <img 
-                              src={product.image_url || "/placeholder.png"} 
-                              alt={product.name} 
-                              className="w-full h-full object-cover absolute inset-0" 
-                            />
-                          </div>
-                          <div className="truncate pr-4">
-                            <p className="font-bold text-white text-base truncate">{product.name}</p>
-                            <p className="text-[10px] text-zinc-500 mt-0.5">ID: {product.id}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Célula: Categoria */}
-                      <td className="p-4 text-zinc-300">
-                        <span className="bg-zinc-950 border border-zinc-800 px-2 py-1 rounded text-xs">
-                          {product.category || "Geral"}
-                        </span>
-                      </td>
-
-                      {/* Célula: Estoque */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                           {product.stock < 5 ? (
-                             <div className="flex items-center gap-1.5 text-red-400 bg-red-400/10 px-2 py-1 rounded border border-red-400/20">
-                               <AlertTriangle className="w-3 h-3" />
-                               <span className="font-bold">{product.stock} un.</span>
-                             </div>
-                           ) : (
-                             <div className="flex items-center gap-1.5 text-zinc-400">
-                               <Archive className="w-3 h-3" />
-                               <span>{product.stock} un.</span>
-                             </div>
-                           )}
-                        </div>
-                      </td>
-
-                      {/* Célula: Preço */}
-                      <td className="p-4 font-mono font-medium text-white">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
-                      </td>
-
-                      {/* Célula: Ações */}
-                      <td className="p-4 pr-6 text-right">
-                        <div className="flex justify-end gap-2">
-                           
-                           {/* BOTÃO EDITAR AGORA FUNCIONA */}
-                           <Link 
-                             href={`/admin/edit/${product.id}`}
-                             className="p-2 hover:bg-blue-500/10 text-zinc-500 hover:text-blue-400 rounded transition-colors inline-flex items-center justify-center" 
-                             title="Editar"
-                           >
-                             <Edit className="w-4 h-4" />
-                           </Link>
-
-                           <button 
-                             onClick={() => handleDelete(product.id)}
-                             className="p-2 hover:bg-red-500/10 text-zinc-500 hover:text-red-400 rounded transition-colors" 
-                             title="Excluir"
-                           >
-                             <Trash2 className="w-4 h-4" />
-                           </button>
-                        </div>
-                      </td>
-
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {/* LISTA DE PRODUTOS */}
+        <div className="space-y-3">
+          <div className="hidden md:grid grid-cols-12 px-6 py-2 text-xs font-bold text-zinc-500 uppercase tracking-wider">
+            <div className="col-span-5">Produto</div>
+            <div className="col-span-2">Categoria</div>
+            <div className="col-span-2">Estoque</div>
+            <div className="col-span-2">Preço</div>
+            <div className="col-span-1 text-right">Ações</div>
           </div>
+
+          {loading ? (
+             <div className="py-20 text-center text-zinc-500 flex flex-col items-center gap-3">
+               <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+               Carregando catálogo...
+             </div>
+          ) : filtered.length === 0 ? (
+             <div className="py-20 text-center text-zinc-600 border border-dashed border-zinc-800 rounded-xl">
+               Nenhum produto encontrado.
+             </div>
+          ) : (
+            filtered.map((product) => (
+              <div 
+                key={product.id} 
+                className="group bg-zinc-900/40 hover:bg-zinc-900 border border-white/5 hover:border-purple-500/30 rounded-xl p-4 transition-all duration-300 grid grid-cols-1 md:grid-cols-12 gap-4 items-center"
+              >
+                {/* 1. Imagem e Nome */}
+                <div className="col-span-5 flex items-center gap-4">
+                  <div className="w-14 h-16 bg-zinc-950 rounded-lg overflow-hidden relative border border-white/10 flex-shrink-0">
+                    {product.image_url ? (
+                      <Image 
+                        src={product.image_url} 
+                        alt={product.name} 
+                        fill 
+                        className="object-cover"
+                        sizes="60px"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-zinc-700">
+                        <ImageIcon size={20}/>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-white text-base truncate group-hover:text-purple-400 transition-colors">
+                      {product.name}
+                    </h3>
+                    <p className="text-[10px] text-zinc-500 font-mono mt-0.5">ID: {product.id}</p>
+                  </div>
+                </div>
+
+                {/* 2. Categoria */}
+                <div className="col-span-2">
+                   <span className="bg-zinc-950 border border-zinc-800 text-zinc-400 px-2.5 py-1 rounded text-xs font-medium">
+                     {product.category || "Geral"}
+                   </span>
+                </div>
+
+                {/* 3. Estoque */}
+                <div className="col-span-2 flex items-center gap-2">
+                   {product.stock < 5 ? (
+                     <div className="flex items-center gap-1.5 text-red-400 bg-red-400/10 px-2 py-1 rounded border border-red-400/20 text-xs font-bold">
+                       <AlertTriangle className="w-3 h-3" />
+                       {product.stock} un.
+                     </div>
+                   ) : (
+                     <div className="flex items-center gap-1.5 text-zinc-400 text-sm">
+                       <Archive className="w-3 h-3" />
+                       {product.stock} un.
+                     </div>
+                   )}
+                </div>
+
+                {/* 4. Preço */}
+                <div className="col-span-2 font-mono font-bold text-white">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
+                </div>
+
+                {/* 5. Ações */}
+                <div className="col-span-1 flex justify-end gap-2">
+                   <Link 
+                     href={`/admin/edit/${product.id}`}
+                     className="p-2 bg-zinc-800 hover:bg-blue-600 text-zinc-400 hover:text-white rounded-lg transition-colors"
+                     title="Editar"
+                   >
+                     <Edit className="w-4 h-4" />
+                   </Link>
+                   <button 
+                     onClick={() => handleDelete(product.id)}
+                     className="p-2 bg-zinc-800 hover:bg-red-600 text-zinc-400 hover:text-white rounded-lg transition-colors"
+                     title="Excluir"
+                   >
+                     <Trash2 className="w-4 h-4" />
+                   </button>
+                </div>
+
+              </div>
+            ))
+          )}
         </div>
       </main>
     </div>

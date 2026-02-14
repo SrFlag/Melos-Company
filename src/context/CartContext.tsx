@@ -1,46 +1,65 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 interface CartItem {
   id: number;
   name: string;
   price: number;
-  image: string;
+  image_url: string;
   quantity: number;
-  size: string;
+  size?: string;
 }
 
 interface CartContextType {
-  items: CartItem[];
-  addToCart: (product: any, size: string) => void;
-  removeFromCart: (id: number, size: string) => void;
-  clearCart: () => void; // <--- NOVA FUNÇÃO
-  toggleCart: () => void;
-  isCartOpen: boolean;
-  cartTotal: number;
+  cart: CartItem[];
+  addToCart: (product: any, size?: string) => void;
+  removeFromCart: (productId: number) => void;
+  clearCart: () => void;
+  total: number;
   cartCount: number;
+  // Novos controles da Sidebar
+  isSidebarOpen: boolean;
+  openSidebar: () => void;
+  closeSidebar: () => void;
 }
 
-const CartContext = createContext({} as CartContextType);
+// Valor padrão seguro para evitar crash se o Provider falhar
+const defaultContext: CartContextType = {
+  cart: [],
+  addToCart: () => {},
+  removeFromCart: () => {},
+  clearCart: () => {},
+  total: 0,
+  cartCount: 0,
+  isSidebarOpen: false,
+  openSidebar: () => {},
+  closeSidebar: () => {},
+};
+
+const CartContext = createContext<CartContextType>(defaultContext);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Carregar do LocalStorage (Apenas no cliente)
   useEffect(() => {
-    const savedCart = localStorage.getItem("@melos-cart");
-    if (savedCart) {
-      setItems(JSON.parse(savedCart));
+    if (typeof window !== "undefined") {
+      const savedCart = localStorage.getItem("@melos:cart");
+      if (savedCart) setCart(JSON.parse(savedCart));
     }
   }, []);
 
+  // Salvar no LocalStorage
   useEffect(() => {
-    localStorage.setItem("@melos-cart", JSON.stringify(items));
-  }, [items]);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("@melos:cart", JSON.stringify(cart));
+    }
+  }, [cart]);
 
-  const addToCart = (product: any, size: string) => {
-    setItems((prev) => {
+  const addToCart = (product: any, size: string = 'UN') => {
+    setCart((prev) => {
       const existingItem = prev.find((item) => item.id === product.id && item.size === size);
       if (existingItem) {
         return prev.map((item) =>
@@ -49,35 +68,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
             : item
         );
       }
-      return [...prev, {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        image: product.image_url || "/img/camisa-frente.png",
-        quantity: 1,
-        size,
-      }];
+      return [...prev, { id: product.id, name: product.name, price: product.price, image_url: product.image_url, quantity: 1, size: size }];
     });
-    setIsCartOpen(true);
+    setIsSidebarOpen(true); // Abre o carrinho automaticamente ao adicionar
   };
 
-  const removeFromCart = (id: number, size: string) => {
-    setItems((prev) => prev.filter((item) => !(item.id === id && item.size === size)));
+  const removeFromCart = (itemId: number) => {
+    setCart((prev) => prev.filter((item) => item.id !== itemId));
   };
 
-  // <--- NOVA LÓGICA: LIMPAR CARRINHO
   const clearCart = () => {
-    setItems([]);
-    localStorage.removeItem("@melos-cart");
+    setCart([]);
+    if (typeof window !== "undefined") localStorage.removeItem("@melos:cart");
   };
 
-  const toggleCart = () => setIsCartOpen((prev) => !prev);
+  const openSidebar = () => setIsSidebarOpen(true);
+  const closeSidebar = () => setIsSidebarOpen(false);
 
-  const cartTotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const cartCount = items.reduce((acc, item) => acc + item.quantity, 0);
+  const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addToCart, removeFromCart, clearCart, toggleCart, isCartOpen, cartTotal, cartCount }}>
+    <CartContext.Provider value={{ 
+      cart, addToCart, removeFromCart, clearCart, total, cartCount,
+      isSidebarOpen, openSidebar, closeSidebar 
+    }}>
       {children}
     </CartContext.Provider>
   );
