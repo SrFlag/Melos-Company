@@ -228,9 +228,8 @@ export default function CheckoutPage() {
           </button>
           
           <div className="flex justify-center gap-2 mt-4 opacity-50">
-             <Image src="https://logopng.com.br/logos/pix-106.png" width={25} height={25} alt="Pix" />
-             <Image src="https://logodownload.org/wp-content/uploads/2019/09/mastercard-logo.png" width={30} height={20} alt="Master" className="object-contain" />
-             <Image src="https://logodownload.org/wp-content/uploads/2016/10/visa-logo-1.png" width={30} height={20} alt="Visa" className="object-contain" />
+             <img src="../../../img/pix.png" width={30} height={30} alt="Pix" />
+             <img src="../../../img/mastercard-logo.png" width={30} height={20} alt="Master" />
           </div>
 
         </div>
