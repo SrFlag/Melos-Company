@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "../../../../public/lib/supabase";
-import { ArrowLeft, Upload, Package, DollarSign, Archive, Layers, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, Package, DollarSign, Archive, Layers, Save, Loader2, ImageIcon, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -10,8 +10,14 @@ import Image from "next/image";
 export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  // Imagem Principal
+  const [mainImage, setMainImage] = useState<File | null>(null);
+  const [mainPreview, setMainPreview] = useState<string | null>(null);
+
+  // Galeria (4 slots)
+  const [galleryFiles, setGalleryFiles] = useState<(File | null)[]>([null, null, null, null]);
+  const [galleryPreviews, setGalleryPreviews] = useState<(string | null)[]>([null, null, null, null]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -20,28 +26,54 @@ export default function NewProductPage() {
     stock: "10",
   });
 
-  // Função Robusta para gerar o Slug
   const generateSlug = (text: string) => {
-    if (!text) return `produto-${Date.now()}`; // Fallback de segurança
-    
-    return text
-      .toString()
-      .toLowerCase()
-      .normalize("NFD") // Separa acentos
-      .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-      .replace(/\s+/g, "-") // Espaço vira hífen
-      .replace(/[^\w\-]+/g, "") // Remove caracteres especiais
-      .replace(/\-\-+/g, "-") // Remove hífens duplicados
-      .replace(/^-+/, "")
-      .replace(/-+$/, "");
+    return text.toString().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "-").replace(/[^\w\-]+/g, "").replace(/\-\-+/g, "-")
+      .replace(/^-+/, "").replace(/-+$/, "");
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+  // Upload Helper
+  const uploadImage = async (file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const { error } = await supabase.storage.from('images').upload(fileName, file);
+    if (error) throw error;
+    const { data } = supabase.storage.from('images').getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  // Handlers
+  const handleMainImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
       const file = e.target.files[0];
-      setImageFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      setMainImage(file);
+      setMainPreview(URL.createObjectURL(file));
     }
+  };
+
+  const handleGalleryChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      const file = e.target.files[0];
+      
+      const newFiles = [...galleryFiles];
+      newFiles[index] = file;
+      setGalleryFiles(newFiles);
+
+      const newPreviews = [...galleryPreviews];
+      newPreviews[index] = URL.createObjectURL(file);
+      setGalleryPreviews(newPreviews);
+    }
+  };
+
+  const removeGalleryImage = (index: number) => {
+    const newFiles = [...galleryFiles];
+    newFiles[index] = null;
+    setGalleryFiles(newFiles);
+
+    const newPreviews = [...galleryPreviews];
+    newPreviews[index] = null;
+    setGalleryPreviews(newPreviews);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,187 +81,169 @@ export default function NewProductPage() {
     setLoading(true);
 
     try {
-      let publicUrl = "";
+      let mainImageUrl = "";
+      const galleryUrls: string[] = [];
 
-      // 1. Upload da Imagem
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('images')
-          .upload(fileName, imageFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage.from('images').getPublicUrl(fileName);
-        publicUrl = data.publicUrl;
+      // 1. Upload Principal
+      if (mainImage) {
+        mainImageUrl = await uploadImage(mainImage);
       }
 
-      // 2. Prepara dados
-      const numericPrice = parseFloat(formData.price.replace(',', '.'));
-      const finalSlug = generateSlug(formData.name); 
+      // 2. Upload Galeria
+      for (const file of galleryFiles) {
+        if (file) {
+          const url = await uploadImage(file);
+          galleryUrls.push(url);
+        }
+      }
 
-      // DEBUG: Verifique se o slug está sendo gerado
-      console.log("Tentando salvar:", { name: formData.name, slug: finalSlug });
+      // 3. Salvar no Banco
+      const { error } = await supabase.from('products').insert([{
+        name: formData.name,
+        slug: generateSlug(formData.name),
+        price: parseFloat(formData.price.replace(',', '.')),
+        image_url: mainImageUrl, // Foto Principal
+        gallery: galleryUrls,    // Array com as outras fotos
+        category: formData.category,
+        stock: parseInt(formData.stock),
+      }]);
 
-      // 3. Salva no Banco
-      const { error: dbError } = await supabase
-        .from('products')
-        .insert([
-          {
-            name: formData.name,
-            slug: finalSlug, // OBRIGATÓRIO
-            price: numericPrice,
-            image_url: publicUrl,
-            category: formData.category,
-            stock: parseInt(formData.stock),
-          }
-        ]);
-
-      if (dbError) throw dbError;
+      if (error) throw error;
 
       alert("Produto criado com sucesso!");
       router.push("/admin");
       
     } catch (error: any) {
-      console.error(error);
-      alert("Erro ao criar produto: " + error.message);
+      alert("Erro: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans pb-20">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans pb-20 selection:bg-purple-500/30">
       
-      {/* HEADER */}
-      <div className="border-b border-white/5 bg-[#09090b] sticky top-0 z-30">
-        <div className="max-w-4xl mx-auto px-6 h-20 flex items-center gap-4">
-          <Link href="/admin" className="p-2 hover:bg-zinc-800 rounded-lg transition-colors text-zinc-400 hover:text-white">
+      {/* Header */}
+      <div className="border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-5xl mx-auto px-6 h-20 flex items-center gap-4">
+          <Link href="/admin" className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <h1 className="text-xl font-bold tracking-tight">Novo Produto</h1>
+          <h1 className="text-xl font-bold tracking-tight text-white">Novo Produto</h1>
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-10 items-start">
+      <main className="max-w-5xl mx-auto px-6 py-10">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-[350px_1fr] gap-12 items-start">
           
-          {/* LADO ESQUERDO: FOTO */}
-          <div className="space-y-4">
-            <p className="text-sm font-bold text-zinc-400 ml-1">Imagem do Produto</p>
-            <div className={`relative w-full aspect-[3/4] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all overflow-hidden group ${previewUrl ? 'border-purple-500/50 bg-zinc-900' : 'border-zinc-700 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-500'}`}>
-              
-              {previewUrl ? (
+          {/* --- ÁREA DE FOTOS --- */}
+          <div className="space-y-6">
+            <p className="text-sm font-bold text-zinc-400 ml-1 flex items-center gap-2">
+              <ImageIcon className="w-4 h-4" /> Fotos do Produto
+            </p>
+            
+            {/* Foto Principal (Capa) */}
+            <div className="relative w-full aspect-[3/4] bg-zinc-900 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-purple-500 transition-colors overflow-hidden group">
+              {mainPreview ? (
                 <>
-                  <Image src={previewUrl} alt="Preview" fill className="object-cover" />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <p className="text-white font-medium text-sm">Trocar foto</p>
+                  <Image src={mainPreview} alt="Preview" fill className="object-cover" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-white font-bold text-sm">Trocar Capa</p>
                   </div>
                 </>
               ) : (
-                <div className="text-center p-6 space-y-2 pointer-events-none">
-                  <div className="w-12 h-12 bg-zinc-800 rounded-full flex items-center justify-center mx-auto text-zinc-400">
-                    <Upload className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm text-zinc-400">Clique para upload</p>
-                  <p className="text-xs text-zinc-600">JPG, PNG ou WEBP</p>
+                <div className="w-full h-full flex flex-col items-center justify-center text-zinc-600 pointer-events-none">
+                  <Upload className="w-10 h-10 mb-2 opacity-50" />
+                  <p className="text-sm font-medium">Foto Principal</p>
                 </div>
               )}
-              
-              <input 
-                type="file" 
-                accept="image/*"
-                onChange={handleImageChange}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                required={!previewUrl}
-              />
+              <input type="file" accept="image/*" onChange={handleMainImageChange} className="absolute inset-0 opacity-0 cursor-pointer" required />
             </div>
+
+            {/* Galeria (4 slots menores) */}
+            <div className="grid grid-cols-4 gap-2">
+              {[0, 1, 2, 3].map((index) => (
+                <div key={index} className="relative aspect-square bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-600 transition-colors overflow-hidden group">
+                  
+                  {galleryPreviews[index] ? (
+                    <>
+                      <Image src={galleryPreviews[index]!} alt={`Gallery ${index}`} fill className="object-cover" />
+                      {/* Botão Remover */}
+                      <button 
+                        type="button"
+                        onClick={() => removeGalleryImage(index)}
+                        className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full hover:bg-red-600 transition-colors z-20"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-zinc-700 pointer-events-none">
+                      <Plus className="w-5 h-5" />
+                    </div>
+                  )}
+                  
+                  {/* Input individual para cada slot */}
+                  {!galleryPreviews[index] && (
+                     <input 
+                       type="file" 
+                       accept="image/*" 
+                       onChange={(e) => handleGalleryChange(index, e)} 
+                       className="absolute inset-0 opacity-0 cursor-pointer" 
+                     />
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-zinc-500 text-center">A primeira foto é a capa. As outras aparecem nos detalhes.</p>
           </div>
 
-          {/* LADO DIREITO: DADOS */}
-          <div className="space-y-6 bg-zinc-900/40 p-8 rounded-2xl border border-white/5">
-            
+          {/* --- FORMULÁRIO DE DADOS --- */}
+          <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-3xl space-y-8">
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-bold text-zinc-400">
-                <Package className="w-4 h-4" /> Nome do Produto
-              </label>
-              <input 
-                required
-                type="text" 
-                placeholder="Ex: Camiseta Oversized Crow"
-                value={formData.name}
-                onChange={e => setFormData({...formData, name: e.target.value})}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all placeholder:text-zinc-600"
-              />
+              <label className="text-sm font-bold text-zinc-400 ml-1">Nome do Produto</label>
+              <div className="relative">
+                <Package className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 w-5 h-5" />
+                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white focus:border-purple-500 outline-none transition-all" placeholder="Ex: Camiseta Crow" />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-zinc-400">
-                  <DollarSign className="w-4 h-4" /> Preço (R$)
-                </label>
-                <input 
-                  required
-                  type="number" 
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.price}
-                  onChange={e => setFormData({...formData, price: e.target.value})}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all placeholder:text-zinc-600"
-                />
+                <label className="text-sm font-bold text-zinc-400 ml-1">Preço (R$)</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 w-4 h-4" />
+                  <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-10 pr-4 text-white focus:border-purple-500 outline-none transition-all" placeholder="0.00" />
+                </div>
               </div>
-
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-zinc-400">
-                  <Archive className="w-4 h-4" /> Estoque Inicial
-                </label>
-                <input 
-                  required
-                  type="number" 
-                  placeholder="10"
-                  value={formData.stock}
-                  onChange={e => setFormData({...formData, stock: e.target.value})}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all placeholder:text-zinc-600"
-                />
+                <label className="text-sm font-bold text-zinc-400 ml-1">Estoque</label>
+                <div className="relative">
+                  <Archive className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 w-4 h-4" />
+                  <input required type="number" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-10 pr-4 text-white focus:border-purple-500 outline-none transition-all" placeholder="10" />
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-bold text-zinc-400">
-                <Layers className="w-4 h-4" /> Categoria
-              </label>
-              <select 
-                value={formData.category}
-                onChange={e => setFormData({...formData, category: e.target.value})}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-4 text-white focus:border-purple-500 outline-none transition-all appearance-none cursor-pointer"
-              >
-                <option value="Camisetas">Camisetas</option>
-                <option value="Hoodies">Hoodies</option>
-                <option value="Acessórios">Acessórios</option>
-                <option value="Calças">Calças</option>
-              </select>
+              <label className="text-sm font-bold text-zinc-400 ml-1">Categoria</label>
+              <div className="relative">
+                <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 w-5 h-5" />
+                <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-4 pl-12 pr-4 text-white focus:border-purple-500 outline-none appearance-none cursor-pointer">
+                  <option value="Camisetas">Camisetas</option>
+                  <option value="Hoodies">Hoodies</option>
+                  <option value="Acessórios">Acessórios</option>
+                  <option value="Calças">Calças</option>
+                </select>
+              </div>
             </div>
 
-            <div className="pt-4">
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(147,51,234,0.2)] flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" /> SALVANDO...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5" /> SALVAR PRODUTO (V2)
-                  </>
-                )}
+            <div className="pt-6 border-t border-white/5">
+              <button type="submit" disabled={loading} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(147,51,234,0.3)] flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50">
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                {loading ? "CRIANDO..." : "CRIAR PRODUTO"}
               </button>
             </div>
-
           </div>
         </form>
       </main>
