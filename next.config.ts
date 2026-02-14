@@ -1,13 +1,19 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'lnjfpafbjbobaogycncb.supabase.co',
-        port: '',
-        pathname: '/storage/v1/object/public/**',
+        hostname: 'logopng.com.br',
+      },
+      {
+        protocol: 'https',
+        hostname: 'logodownload.org',
+      },
+      // Adicionei o Supabase aqui também para garantir que as fotos dos produtos funcionem
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
       },
     ],
   },
